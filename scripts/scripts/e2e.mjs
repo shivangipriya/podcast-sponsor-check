@@ -1,0 +1,51 @@
+// Optional end-to-end check in headless Chrome (set CHROME=/path/to/chrome if needed). Run: npm run e2e
+import { spawn } from "node:child_process";
+const srv = spawn("node", ["scripts/serve.mjs"], { cwd: new URL("..", import.meta.url).pathname, env: { ...process.env, PORT: "8099" } });
+await new Promise(r => setTimeout(r, 800));
+const chrome = spawn(process.env.CHROME || "google-chrome", ["--headless=new","--no-sandbox","--disable-gpu","--remote-debugging-port=9333","--user-data-dir=" + (process.env.TMPDIR || "/tmp") + "/psc-e2e-profile","--window-size=390,900","about:blank"], { stdio: "ignore" });
+await new Promise(r => setTimeout(r, 2500));
+const tabs = await (await fetch("http://127.0.0.1:9333/json")).json();
+const ws = new WebSocket(tabs.find(t => t.type === "page").webSocketDebuggerUrl);
+await new Promise(r => ws.onopen = r);
+let id = 0; const pend = {}; const logs = [];
+ws.onmessage = m => { const d = JSON.parse(m.data); if (d.id && pend[d.id]) pend[d.id](d); if (d.method === "Runtime.consoleAPICalled" || d.method === "Runtime.exceptionThrown") logs.push(JSON.stringify(d.params).slice(0, 300)); };
+const send = (method, params = {}) => new Promise(r => { const i = ++id; pend[i] = r; ws.send(JSON.stringify({ id: i, method, params })); });
+const ev = async (expr) => { const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true }); if (r.result.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0,300)); return r.result.result.value; };
+const shot = async (p) => { const r = await send("Page.captureScreenshot", { format: "png" }); (await import("node:fs")).writeFileSync(p, Buffer.from(r.result.data, "base64")); };
+await send("Runtime.enable"); await send("Emulation.setFocusEmulationEnabled",{enabled:true}); await send("Page.bringToFront"); await send("Page.enable");
+await send("Browser.grantPermissions", { permissions: ["clipboardReadWrite","clipboardSanitizedWrite"], origin: "http://localhost:8099" }).catch(()=>{});
+await send("Page.navigate", { url: "http://localhost:8099/" }); await new Promise(r => setTimeout(r, 1500));
+const out = {};
+const txt = () => ev("document.querySelector('#result').innerText");
+out.initial = (await txt()).slice(0, 160);
+await ev("document.querySelector('[data-load=same]').click()"); out.same = (await txt()).match(/Their figure[^\n]*/)[0];
+await ev("document.querySelector('#clear').click()"); out.clear = (await txt()).slice(0, 40);
+// type into fields via input events
+const setv = (sel, v) => ev(`(()=>{const e=document.querySelectorAll(${JSON.stringify(sel)})[0];e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));return 1})()`);
+await ev("document.querySelectorAll('[data-side=ours] [data-basis] button')[1].click()");
+await ev("document.querySelectorAll('[data-side=theirs] [data-basis] button')[1].click()");
+await setv("[data-side=ours] [data-field=csv]", 'Ep,N\nA,"1,200"\nA,300\nB,\nC,x');
+out.pickersBeforePick = await ev("document.querySelectorAll('[data-side=ours] [data-columns] button').length");
+await ev("document.querySelectorAll('[data-side=ours] [data-columns] .choices')[1].querySelectorAll('button')[1].click()");
+await setv("[data-side=theirs] [data-field=count]", "1,500");
+out.messy = (await txt()).split("\n").filter(l => /more than one row|skipped|Their figure|equal/.test(l));
+await setv("[data-side=ours] [data-field=start]", "2026-10-31"); await setv("[data-side=ours] [data-field=end]", "2026-10-01");
+out.dates = /ends before it starts/.test(await txt());
+await ev("document.querySelectorAll('[data-side=theirs] [data-basis] button')[2].click()");
+out.mismatch = /Not a like-for-like gap/.test(await txt());
+// copy
+await ev("document.querySelector('#copy').click()"); await new Promise(r => setTimeout(r, 500));
+out.copyStatus = await ev("document.querySelector('#copy-status').textContent");
+out.clipboard = (await ev("navigator.clipboard.readText().then(t=>t.slice(0,40)).catch(e=>'ERR '+e.message)"));
+out.noteStart = await ev("document.querySelector('#note').value.slice(0,40)");
+// fallback path: make clipboard.writeText throw
+await ev("Object.defineProperty(navigator,'clipboard',{value:{writeText:()=>Promise.reject(new Error('no'))},configurable:true})");
+await ev("document.querySelector('#copy').click()"); await new Promise(r => setTimeout(r, 500));
+out.fallbackStatus = await ev("document.querySelector('#copy-status').textContent");
+out.noteSelected = await ev("(()=>{const t=document.querySelector('#note');return t.selectionEnd-t.selectionStart>0})()");
+out.overflowX = await ev("document.documentElement.scrollWidth>window.innerWidth");
+out.consoleErrors = logs.length;
+await ev("document.querySelector('[data-load=different]').click(); document.querySelector('#result').scrollIntoView()"); await new Promise(r => setTimeout(r, 300));
+await shot((process.env.SHOT || "e2e-result.png"));
+console.log(JSON.stringify(out, null, 1)); console.log(logs.join("\n"));
+chrome.kill(); srv.kill(); process.exit(0);
