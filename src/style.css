@@ -1,0 +1,22 @@
+:root{--ink:#2a2220;--mute:#6f625e;--line:#e6dfdc;--bg:#fdfbfa;--soft:#f5f1ef;--ok:#3f7d6b;--warn:#8a5a00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.75rem;line-height:1.2;margin:0 0 8px}h2{font-size:1.25rem;margin:0 0 12px}h3{font-size:1.05rem;margin:20px 0 8px}
+.group{margin-top:36px}
+.label{display:block;margin:14px 0 6px;color:var(--mute);font-size:.95rem}
+.input,.text{display:block;width:100%;margin-top:6px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit}
+.text{min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9rem}.text.short{min-height:70px}.note{min-height:260px}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:480px){.dates{grid-template-columns:1fr}}
+.choices,.row-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.choice,.btn{min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;cursor:pointer}
+.choice[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.ghost{border-color:transparent;background:none;text-decoration:underline}.btn.secondary{background:#fff}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #2b6cb0;outline-offset:2px}
+.callout{margin:14px 0;padding:12px 16px;border-left:4px solid var(--line);background:var(--soft);border-radius:4px}.callout p{margin:4px 0 0}.callout.warning{border-left-color:var(--warn)}
+.facts{margin:16px 0}.facts div{display:grid;grid-template-columns:120px 1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.facts dt{color:var(--mute)}.facts dd{margin:0}
+.rows,.list{list-style:none;margin:12px 0;padding:0}.list{list-style:decimal;padding-left:22px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}.row p{margin:4px 0 0;color:var(--mute);font-size:.95rem}
+.status{white-space:nowrap;font-weight:600}.status.same{color:var(--ok)}
+.caption{color:var(--mute);font-size:.9rem}#copy-status{color:var(--mute)}
+[hidden]{display:none!important}
